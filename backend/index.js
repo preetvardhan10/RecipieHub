@@ -22,7 +22,7 @@ app.use(express.json());
 
 // Root route
 app.get('/', (req, res) => {
-  res.json({ message: 'Recipe Hub API is running!' });
+  res.json({ message: 'Recipe Hub API is running!!' });
 });
 
 // Auth middleware

@@ -67,18 +67,28 @@ Return ONLY a valid JSON array with exactly this structure. Do not include any t
       const { ingredients } = req.body;
       if (ingredients && ingredients.length > 0) {
         const ingredientSearchTerms = ingredients.map(i => i.toLowerCase().trim());
-        const ingredientRegex = ingredientSearchTerms.map(i => new RegExp(i, 'i'));
+        const ingredientConditions = ingredientSearchTerms.map(term => ({
+          ingredients: {
+            [Op.contains]: [{ name: { [Op.iLike]: `%${term}%` } }]
+          }
+        }));
         
-        const similarRecipes = await Recipe.find({
-          $or: [
-            { 'ingredients.name': { $in: ingredientRegex } },
-            { title: { $in: ingredientRegex } },
-            { description: { $in: ingredientRegex.map(r => new RegExp(r.source, 'i')) } }
-          ]
-        })
-          .populate('author', 'name email')
-          .limit(8)
-          .sort({ averageRating: -1 });
+        const similarRecipes = await Recipe.findAll({
+          where: {
+            [Op.or]: [
+              ...ingredientConditions,
+              { title: { [Op.iLike]: { [Op.any]: ingredientSearchTerms.map(t => `%${t}%`) } } },
+              { description: { [Op.iLike]: { [Op.any]: ingredientSearchTerms.map(t => `%${t}%`) } } }
+            ]
+          },
+          include: [{
+            model: User,
+            as: 'author',
+            attributes: ['id', 'name', 'email']
+          }],
+          limit: 8,
+          order: [['averageRating', 'DESC']]
+        });
 
         return res.json({
           aiSuggestions: [],

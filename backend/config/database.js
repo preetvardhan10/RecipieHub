@@ -78,12 +78,60 @@ const initSequelize = () => {
   }
   
   if (!connectionString && !config) {
-    if (process.env.NODE_ENV === 'production') {
-      console.error('No valid database connection found. Available env vars:', Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('POSTGRES')));
-      throw new Error('DATABASE_URL or POSTGRES_URL environment variable is required in production');
+    // Try to get from Railway's automatically injected variables
+    // Railway sometimes injects variables with different names
+    const allEnvKeys = Object.keys(process.env);
+    const dbRelatedKeys = allEnvKeys.filter(k => 
+      k.includes('DATABASE') || 
+      k.includes('POSTGRES') || 
+      k.includes('PG')
+    );
+    
+    console.log('Available database-related env vars:', dbRelatedKeys);
+    
+    // Try to find any postgres connection string in env
+    for (const key of dbRelatedKeys) {
+      const value = process.env[key];
+      if (value && typeof value === 'string' && value.includes('postgres')) {
+        if (isValidConnectionString(value)) {
+          connectionString = value.trim();
+          console.log(`Using ${key} for database connection`);
+          break;
+        }
+      }
     }
-    connectionString = 'postgres://postgres:postgres@localhost:5432/recipehub';
-    console.log('Using localhost PostgreSQL (development mode)');
+    
+    // If still no connection, try individual parts
+    if (!connectionString && !config) {
+      const pgHost = process.env.PGHOST || process.env.POSTGRES_HOST;
+      const pgPort = process.env.PGPORT || process.env.POSTGRES_PORT || '5432';
+      const pgDatabase = process.env.PGDATABASE || process.env.POSTGRES_DATABASE || 'railway';
+      const pgUser = process.env.PGUSER || process.env.POSTGRES_USER || 'postgres';
+      const pgPassword = process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD;
+      
+      if (pgHost && pgUser && pgPassword) {
+        config = {
+          host: pgHost,
+          port: parseInt(pgPort),
+          database: pgDatabase,
+          username: pgUser,
+          password: pgPassword,
+          dialect: 'postgres',
+          logging: false
+        };
+        console.log('Using PostgreSQL connection from individual environment variables');
+      }
+    }
+    
+    // Last resort: throw error only if absolutely nothing found
+    if (!connectionString && !config) {
+      if (process.env.NODE_ENV === 'production') {
+        console.error('No valid database connection found. Available env vars:', dbRelatedKeys);
+        throw new Error('DATABASE_URL, POSTGRES_URL, or PostgreSQL connection details are required in production');
+      }
+      connectionString = 'postgres://postgres:postgres@localhost:5432/recipehub';
+      console.log('Using localhost PostgreSQL (development mode)');
+    }
   }
   
   if (config) {

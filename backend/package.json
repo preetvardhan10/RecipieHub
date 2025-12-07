@@ -5,22 +5,16 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js",
-    "build": "prisma generate",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:deploy": "prisma migrate deploy",
-    "prisma:studio": "prisma studio"
+    "dev": "nodemon index.js"
   },
   "dependencies": {
-    "@prisma/client": "^5.6.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
-    "mysql2": "^3.15.3",
-    "prisma": "^5.6.0"
+    "mongoose": "^8.0.3",
+    "openai": "^4.20.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

@@ -1,5 +1,6 @@
 const express = require('express');
-const Recipe = require('../models/Recipe');
+const { Recipe, User, Review, RecipeFavorite } = require('../models');
+const { Op } = require('sequelize');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -9,41 +10,45 @@ router.get('/', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 12;
-    const skip = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
     // Build filter
-    const filter = {};
-    if (req.query.cuisine) filter.cuisine = req.query.cuisine;
-    if (req.query.difficulty) filter.difficulty = req.query.difficulty;
+    const where = {};
+    if (req.query.cuisine) where.cuisine = req.query.cuisine;
+    if (req.query.difficulty) where.difficulty = req.query.difficulty;
     if (req.query.search) {
-      filter.$or = [
-        { title: { $regex: req.query.search, $options: 'i' } },
-        { description: { $regex: req.query.search, $options: 'i' } },
-        { tags: { $in: [new RegExp(req.query.search, 'i')] } }
+      where[Op.or] = [
+        { title: { [Op.iLike]: `%${req.query.search}%` } },
+        { description: { [Op.iLike]: `%${req.query.search}%` } },
+        { tags: { [Op.contains]: [req.query.search] } }
       ];
     }
 
     // Build sort
-    let sort = { createdAt: -1 };
-    if (req.query.sortBy === 'rating') sort = { averageRating: -1 };
-    if (req.query.sortBy === 'time') sort = { cookingTime: 1 };
-    if (req.query.sortBy === 'date') sort = { createdAt: -1 };
+    let order = [['createdAt', 'DESC']];
+    if (req.query.sortBy === 'rating') order = [['averageRating', 'DESC']];
+    if (req.query.sortBy === 'time') order = [['cookingTime', 'ASC']];
+    if (req.query.sortBy === 'date') order = [['createdAt', 'DESC']];
 
-    const recipes = await Recipe.find(filter)
-      .populate('author', 'name email')
-      .sort(sort)
-      .skip(skip)
-      .limit(limit);
-
-    const total = await Recipe.countDocuments(filter);
+    const { count, rows: recipes } = await Recipe.findAndCountAll({
+      where,
+      include: [{
+        model: User,
+        as: 'author',
+        attributes: ['id', 'name', 'email']
+      }],
+      order,
+      limit,
+      offset
+    });
 
     res.json({
       recipes,
       pagination: {
         page,
         limit,
-        total,
-        pages: Math.ceil(total / limit)
+        total: count,
+        pages: Math.ceil(count / limit)
       }
     });
   } catch (error) {
@@ -57,17 +62,27 @@ router.get('/search', async (req, res) => {
   try {
     const { ingredients, cuisine, difficulty } = req.query;
 
-    const filter = {};
-    if (cuisine) filter.cuisine = cuisine;
-    if (difficulty) filter.difficulty = difficulty;
+    const where = {};
+    if (cuisine) where.cuisine = cuisine;
+    if (difficulty) where.difficulty = difficulty;
+    
     if (ingredients) {
-      const ingredientList = ingredients.split(',').map(i => i.trim());
-      filter['ingredients.name'] = { $in: ingredientList.map(i => new RegExp(i, 'i')) };
+      const ingredientList = ingredients.split(',').map(i => i.trim().toLowerCase());
+      // Search in JSONB ingredients array
+      where.ingredients = {
+        [Op.contains]: ingredientList.map(ing => ({ name: { [Op.iLike]: `%${ing}%` } }))
+      };
     }
 
-    const recipes = await Recipe.find(filter)
-      .populate('author', 'name email')
-      .limit(50);
+    const recipes = await Recipe.findAll({
+      where,
+      include: [{
+        model: User,
+        as: 'author',
+        attributes: ['id', 'name', 'email']
+      }],
+      limit: 50
+    });
 
     res.json({ recipes });
   } catch (error) {
@@ -79,9 +94,24 @@ router.get('/search', async (req, res) => {
 // Get single recipe
 router.get('/:id', async (req, res) => {
   try {
-    const recipe = await Recipe.findById(req.params.id)
-      .populate('author', 'name email bio avatar')
-      .populate('reviews.user', 'name email avatar');
+    const recipe = await Recipe.findByPk(req.params.id, {
+      include: [
+        {
+          model: User,
+          as: 'author',
+          attributes: ['id', 'name', 'email', 'bio', 'avatar']
+        },
+        {
+          model: Review,
+          as: 'reviews',
+          include: [{
+            model: User,
+            as: 'user',
+            attributes: ['id', 'name', 'email', 'avatar']
+          }]
+        }
+      ]
+    });
 
     if (!recipe) {
       return res.status(404).json({ error: 'Recipe not found' });
@@ -99,12 +129,17 @@ router.post('/', authenticateToken, async (req, res) => {
   try {
     const recipeData = {
       ...req.body,
-      author: req.user.userId
+      authorId: req.user.userId
     };
 
-    const recipe = new Recipe(recipeData);
-    await recipe.save();
-    await recipe.populate('author', 'name email');
+    const recipe = await Recipe.create(recipeData);
+    await recipe.reload({
+      include: [{
+        model: User,
+        as: 'author',
+        attributes: ['id', 'name', 'email']
+      }]
+    });
 
     res.status(201).json(recipe);
   } catch (error) {
@@ -116,20 +151,25 @@ router.post('/', authenticateToken, async (req, res) => {
 // Update recipe
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
-    const recipe = await Recipe.findById(req.params.id);
+    const recipe = await Recipe.findByPk(req.params.id);
 
     if (!recipe) {
       return res.status(404).json({ error: 'Recipe not found' });
     }
 
     // Check if user is author or admin
-    if (recipe.author.toString() !== req.user.userId && req.user.role !== 'admin') {
+    if (recipe.authorId !== parseInt(req.user.userId) && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
-    Object.assign(recipe, req.body);
-    await recipe.save();
-    await recipe.populate('author', 'name email');
+    await recipe.update(req.body);
+    await recipe.reload({
+      include: [{
+        model: User,
+        as: 'author',
+        attributes: ['id', 'name', 'email']
+      }]
+    });
 
     res.json(recipe);
   } catch (error) {
@@ -141,18 +181,18 @@ router.put('/:id', authenticateToken, async (req, res) => {
 // Delete recipe
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
-    const recipe = await Recipe.findById(req.params.id);
+    const recipe = await Recipe.findByPk(req.params.id);
 
     if (!recipe) {
       return res.status(404).json({ error: 'Recipe not found' });
     }
 
     // Check if user is author or admin
-    if (recipe.author.toString() !== req.user.userId && req.user.role !== 'admin') {
+    if (recipe.authorId !== parseInt(req.user.userId) && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
-    await Recipe.findByIdAndDelete(req.params.id);
+    await recipe.destroy();
     res.json({ message: 'Recipe deleted successfully' });
   } catch (error) {
     console.error('Delete recipe error:', error);
@@ -164,30 +204,40 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 router.post('/:id/reviews', authenticateToken, async (req, res) => {
   try {
     const { rating, comment } = req.body;
-    const recipe = await Recipe.findById(req.params.id);
+    const recipe = await Recipe.findByPk(req.params.id);
 
     if (!recipe) {
       return res.status(404).json({ error: 'Recipe not found' });
     }
 
     // Check if user already reviewed
-    const existingReview = recipe.reviews.find(
-      r => r.user.toString() === req.user.userId
-    );
-
-    if (existingReview) {
-      existingReview.rating = rating;
-      existingReview.comment = comment || '';
-    } else {
-      recipe.reviews.push({
-        user: req.user.userId,
+    const [review, created] = await Review.findOrCreate({
+      where: {
+        recipeId: recipe.id,
+        userId: req.user.userId
+      },
+      defaults: {
         rating,
         comment: comment || ''
-      });
+      }
+    });
+
+    if (!created) {
+      await review.update({ rating, comment: comment || '' });
     }
 
-    await recipe.save();
-    await recipe.populate('reviews.user', 'name email avatar');
+    // Reload recipe with reviews to recalculate average
+    await recipe.reload({
+      include: [{
+        model: Review,
+        as: 'reviews',
+        include: [{
+          model: User,
+          as: 'user',
+          attributes: ['id', 'name', 'email', 'avatar']
+        }]
+      }]
+    });
 
     res.json(recipe);
   } catch (error) {
@@ -199,21 +249,33 @@ router.post('/:id/reviews', authenticateToken, async (req, res) => {
 // Toggle favorite
 router.post('/:id/favorite', authenticateToken, async (req, res) => {
   try {
-    const recipe = await Recipe.findById(req.params.id);
+    const recipe = await Recipe.findByPk(req.params.id);
 
     if (!recipe) {
       return res.status(404).json({ error: 'Recipe not found' });
     }
 
-    const index = recipe.favorites.indexOf(req.user.userId);
-    if (index > -1) {
-      recipe.favorites.splice(index, 1);
+    const [favorite, created] = await RecipeFavorite.findOrCreate({
+      where: {
+        recipeId: recipe.id,
+        userId: req.user.userId
+      }
+    });
+
+    let isFavorite;
+    if (!created) {
+      // Already favorited, remove it
+      await favorite.destroy();
+      isFavorite = false;
     } else {
-      recipe.favorites.push(req.user.userId);
+      isFavorite = true;
     }
 
-    await recipe.save();
-    res.json({ isFavorite: index === -1, favoritesCount: recipe.favorites.length });
+    const favoritesCount = await RecipeFavorite.count({
+      where: { recipeId: recipe.id }
+    });
+
+    res.json({ isFavorite, favoritesCount });
   } catch (error) {
     console.error('Toggle favorite error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -221,4 +283,3 @@ router.post('/:id/favorite', authenticateToken, async (req, res) => {
 });
 
 module.exports = router;
-

@@ -1,5 +1,5 @@
 const express = require('express');
-const MealPlan = require('../models/MealPlan');
+const { MealPlan, Recipe } = require('../models');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -7,11 +7,29 @@ const router = express.Router();
 // Get user's meal plans
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const mealPlans = await MealPlan.find({ user: req.user.userId })
-      .populate('meals.recipe')
-      .sort({ weekStartDate: -1 });
+    const mealPlans = await MealPlan.findAll({
+      where: { userId: req.user.userId },
+      order: [['weekStartDate', 'DESC']],
+      include: []
+    });
 
-    res.json(mealPlans);
+    // Populate recipe details for each meal
+    const mealPlansWithRecipes = await Promise.all(
+      mealPlans.map(async (plan) => {
+        const meals = await Promise.all(
+          (plan.meals || []).map(async (meal) => {
+            if (meal.recipe) {
+              const recipe = await Recipe.findByPk(meal.recipe);
+              return { ...meal, recipe };
+            }
+            return meal;
+          })
+        );
+        return { ...plan.toJSON(), meals };
+      })
+    );
+
+    res.json(mealPlansWithRecipes);
   } catch (error) {
     console.error('Get meal plans error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -23,16 +41,24 @@ router.post('/', authenticateToken, async (req, res) => {
   try {
     const { weekStartDate, meals } = req.body;
 
-    const mealPlan = new MealPlan({
-      user: req.user.userId,
+    const mealPlan = await MealPlan.create({
+      userId: req.user.userId,
       weekStartDate,
-      meals
+      meals: meals || []
     });
 
-    await mealPlan.save();
-    await mealPlan.populate('meals.recipe');
+    // Populate recipe details
+    const mealsWithRecipes = await Promise.all(
+      ((mealPlan.meals || [])).map(async (meal) => {
+        if (meal.recipe) {
+          const recipe = await Recipe.findByPk(meal.recipe);
+          return { ...meal, recipe };
+        }
+        return meal;
+      })
+    );
 
-    res.status(201).json(mealPlan);
+    res.status(201).json({ ...mealPlan.toJSON(), meals: mealsWithRecipes });
   } catch (error) {
     console.error('Create meal plan error:', error);
     res.status(500).json({ error: 'Server error: ' + error.message });
@@ -42,21 +68,30 @@ router.post('/', authenticateToken, async (req, res) => {
 // Update meal plan
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
-    const mealPlan = await MealPlan.findById(req.params.id);
+    const mealPlan = await MealPlan.findByPk(req.params.id);
 
     if (!mealPlan) {
       return res.status(404).json({ error: 'Meal plan not found' });
     }
 
-    if (mealPlan.user.toString() !== req.user.userId) {
+    if (mealPlan.userId !== parseInt(req.user.userId)) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
-    Object.assign(mealPlan, req.body);
-    await mealPlan.save();
-    await mealPlan.populate('meals.recipe');
+    await mealPlan.update(req.body);
 
-    res.json(mealPlan);
+    // Populate recipe details
+    const mealsWithRecipes = await Promise.all(
+      ((mealPlan.meals || [])).map(async (meal) => {
+        if (meal.recipe) {
+          const recipe = await Recipe.findByPk(meal.recipe);
+          return { ...meal, recipe };
+        }
+        return meal;
+      })
+    );
+
+    res.json({ ...mealPlan.toJSON(), meals: mealsWithRecipes });
   } catch (error) {
     console.error('Update meal plan error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -66,17 +101,17 @@ router.put('/:id', authenticateToken, async (req, res) => {
 // Delete meal plan
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
-    const mealPlan = await MealPlan.findById(req.params.id);
+    const mealPlan = await MealPlan.findByPk(req.params.id);
 
     if (!mealPlan) {
       return res.status(404).json({ error: 'Meal plan not found' });
     }
 
-    if (mealPlan.user.toString() !== req.user.userId) {
+    if (mealPlan.userId !== parseInt(req.user.userId)) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
-    await MealPlan.findByIdAndDelete(req.params.id);
+    await mealPlan.destroy();
     res.json({ message: 'Meal plan deleted successfully' });
   } catch (error) {
     console.error('Delete meal plan error:', error);
@@ -85,4 +120,3 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 
 module.exports = router;
-

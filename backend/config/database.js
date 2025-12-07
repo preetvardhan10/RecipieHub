@@ -26,6 +26,7 @@ const initSequelize = () => {
   
   // Debug: Log what we have
   console.log('Checking environment variables...');
+  console.log('DATABASE_PUBLIC_URL exists:', !!process.env.DATABASE_PUBLIC_URL);
   console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
   console.log('POSTGRES_URL exists:', !!process.env.POSTGRES_URL);
   console.log('POSTGRES_HOST exists:', !!process.env.POSTGRES_HOST);
@@ -34,10 +35,21 @@ const initSequelize = () => {
   let connectionString = null;
   let config = null;
   
-  if (process.env.DATABASE_URL) {
+  // Prefer DATABASE_PUBLIC_URL (works from any service, not just linked ones)
+  if (process.env.DATABASE_PUBLIC_URL) {
+    if (isValidConnectionString(process.env.DATABASE_PUBLIC_URL)) {
+      connectionString = process.env.DATABASE_PUBLIC_URL.trim();
+      console.log('Using DATABASE_PUBLIC_URL');
+    } else {
+      console.log('DATABASE_PUBLIC_URL exists but failed validation');
+    }
+  }
+  
+  // Fall back to DATABASE_URL (internal, requires service linking)
+  if (!connectionString && process.env.DATABASE_URL) {
     if (isValidConnectionString(process.env.DATABASE_URL)) {
       connectionString = process.env.DATABASE_URL.trim();
-      console.log('Using DATABASE_URL');
+      console.log('Using DATABASE_URL (internal)');
     } else {
       console.log('DATABASE_URL exists but failed validation');
     }

@@ -5,9 +5,17 @@ const Recipe = require('../models/Recipe');
 
 const router = express.Router();
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+// Initialize OpenAI only if API key is provided
+let openai = null;
+if (process.env.OPENAI_API_KEY) {
+  try {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
+  } catch (error) {
+    console.warn('OpenAI client initialization failed:', error.message);
+  }
+}
 
 // Get AI recipe suggestions
 router.post('/suggest', authenticateToken, async (req, res) => {
@@ -51,6 +59,34 @@ Return ONLY a valid JSON array with exactly this structure. Do not include any t
     "cuisine": "Italian"
   }
 ]`;
+
+    // Check if OpenAI is available
+    if (!openai) {
+      // Fallback to database search only
+      const { ingredients } = req.body;
+      if (ingredients && ingredients.length > 0) {
+        const ingredientSearchTerms = ingredients.map(i => i.toLowerCase().trim());
+        const ingredientRegex = ingredientSearchTerms.map(i => new RegExp(i, 'i'));
+        
+        const similarRecipes = await Recipe.find({
+          $or: [
+            { 'ingredients.name': { $in: ingredientRegex } },
+            { title: { $in: ingredientRegex } },
+            { description: { $in: ingredientRegex.map(r => new RegExp(r.source, 'i')) } }
+          ]
+        })
+          .populate('author', 'name email')
+          .limit(8)
+          .sort({ averageRating: -1 });
+
+        return res.json({
+          aiSuggestions: [],
+          similarRecipes,
+          message: 'AI service unavailable. Please set OPENAI_API_KEY environment variable for AI suggestions. Showing similar recipes from database.'
+        });
+      }
+      return res.status(400).json({ error: 'OpenAI API key not configured. Please set OPENAI_API_KEY environment variable.' });
+    }
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',

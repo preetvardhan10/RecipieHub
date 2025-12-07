@@ -261,7 +261,7 @@ const AISuggestions = () => {
                         <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
                           {suggestion.ingredients && suggestion.ingredients.length > 0 ? (
                             suggestion.ingredients.map((ing, i) => (
-                              <li key={i}>{ing}</li>
+                            <li key={i}>{ing}</li>
                             ))
                           ) : (
                             <li className="text-gray-400">No ingredients listed</li>

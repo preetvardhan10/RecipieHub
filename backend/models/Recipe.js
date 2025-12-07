@@ -1,108 +1,99 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { getSequelize } = require('../config/database');
+const sequelize = getSequelize();
 
-const reviewSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+const Recipe = sequelize.define('Recipe', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
   },
-  rating: {
-    type: Number,
-    required: true,
-    min: 1,
-    max: 5
-  },
-  comment: {
-    type: String,
-    default: ''
-  }
-}, {
-  timestamps: true
-});
-
-const recipeSchema = new mongoose.Schema({
   title: {
-    type: String,
-    required: true,
+    type: DataTypes.STRING,
+    allowNull: false,
     trim: true
   },
   description: {
-    type: String,
-    required: true
+    type: DataTypes.TEXT,
+    allowNull: false
   },
-  ingredients: [{
-    name: {
-      type: String,
-      required: true
-    },
-    quantity: {
-      type: String,
-      required: true
-    }
-  }],
-  instructions: [{
-    type: String,
-    required: true
-  }],
+  ingredients: {
+    type: DataTypes.JSONB,
+    allowNull: false,
+    defaultValue: []
+  },
+  instructions: {
+    type: DataTypes.ARRAY(DataTypes.TEXT),
+    allowNull: false,
+    defaultValue: []
+  },
   cookingTime: {
-    type: Number,
-    required: true,
-    min: 1
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    validate: {
+      min: 1
+    }
   },
   servings: {
-    type: Number,
-    required: true,
-    min: 1
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    validate: {
+      min: 1
+    }
   },
   difficulty: {
-    type: String,
-    enum: ['easy', 'medium', 'hard'],
-    default: 'medium'
+    type: DataTypes.ENUM('easy', 'medium', 'hard'),
+    defaultValue: 'medium'
   },
   cuisine: {
-    type: String,
-    default: ''
+    type: DataTypes.STRING,
+    defaultValue: ''
   },
-  tags: [{
-    type: String
-  }],
+  tags: {
+    type: DataTypes.ARRAY(DataTypes.STRING),
+    defaultValue: []
+  },
   image: {
-    type: String,
-    default: ''
+    type: DataTypes.STRING,
+    defaultValue: ''
   },
-  author: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+  authorId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'Users',
+      key: 'id'
+    }
   },
-  reviews: [reviewSchema],
-  favorites: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }],
   averageRating: {
-    type: Number,
-    default: 0,
-    min: 0,
-    max: 5
+    type: DataTypes.DECIMAL(3, 2),
+    defaultValue: 0,
+    validate: {
+      min: 0,
+      max: 5
+    }
   },
   totalRatings: {
-    type: Number,
-    default: 0
+    type: DataTypes.INTEGER,
+    defaultValue: 0
   }
 }, {
-  timestamps: true
-});
-
-// Calculate average rating before saving
-recipeSchema.pre('save', function(next) {
-  if (this.reviews && this.reviews.length > 0) {
-    const sum = this.reviews.reduce((acc, review) => acc + review.rating, 0);
-    this.averageRating = (sum / this.reviews.length).toFixed(1);
-    this.totalRatings = this.reviews.length;
+  timestamps: true,
+  hooks: {
+    afterUpdate: async (recipe) => {
+      // Recalculate average rating when reviews change
+      const Review = require('./Review');
+      const reviews = await Review.findAll({
+        where: { recipeId: recipe.id }
+      });
+      if (reviews.length > 0) {
+        const sum = reviews.reduce((acc, review) => acc + review.rating, 0);
+        recipe.averageRating = (sum / reviews.length).toFixed(2);
+        recipe.totalRatings = reviews.length;
+        await recipe.save();
+      }
+    }
   }
-  next();
 });
 
-module.exports = mongoose.model('Recipe', recipeSchema);
-
+module.exports = Recipe;

@@ -515,8 +515,8 @@ const createRecipeFromTemplate = (template, index) => {
 const generateIngredients = (template) => {
   const common = [
     { name: 'Onion', quantity: '1, diced' },
-    { name: 'Garlic', quantity: '3 cloves, minced' },
-    { name: 'Olive oil', quantity: '2 tbsp' },
+      { name: 'Garlic', quantity: '3 cloves, minced' },
+      { name: 'Olive oil', quantity: '2 tbsp' },
     { name: 'Salt', quantity: 'to taste' },
     { name: 'Black pepper', quantity: 'to taste' }
   ];

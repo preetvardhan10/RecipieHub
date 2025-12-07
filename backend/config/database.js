@@ -1,4 +1,6 @@
-const mongoose = require('mongoose');
+const { Sequelize } = require('sequelize');
+
+let sequelize = null;
 
 const connectDB = async () => {
   try {
@@ -7,49 +9,85 @@ const connectDB = async () => {
       if (!uri || typeof uri !== 'string') return false;
       const trimmed = uri.trim();
       if (trimmed.length === 0) return false;
-      if (!trimmed.startsWith('mongodb://') && !trimmed.startsWith('mongodb+srv://')) return false;
-      // Check for placeholder values
-      if (trimmed.includes('your-username') || trimmed.includes('your-password') || 
-          trimmed.includes('<password>') || trimmed.includes('<username>') ||
-          trimmed.includes('cluster.mongodb.net') && (trimmed.includes('your-') || trimmed.includes('<'))) {
+      // PostgreSQL connection strings can be:
+      // - postgresql://user:pass@host:port/db
+      // - postgres://user:pass@host:port/db
+      // - DATABASE_URL format
+      if (!trimmed.startsWith('postgres://') && 
+          !trimmed.startsWith('postgresql://') &&
+          !trimmed.includes('postgres')) {
         return false;
       }
       return true;
     };
     
-    // Prioritize MONGO_URL (Railway default) if MONGODB_URI is invalid
-    let mongoURI = null;
+    // Check for DATABASE_URL first (Railway/Heroku standard), then POSTGRES_URL, then construct from parts
+    let connectionString = null;
+    let config = null;
     
-    // Check MONGO_URL first (Railway's default)
-    if (process.env.MONGO_URL && isValidConnectionString(process.env.MONGO_URL)) {
-      mongoURI = process.env.MONGO_URL.trim();
-      console.log('Using MONGO_URL from Railway');
-    }
-    // Then check MONGODB_URI if MONGO_URL is not available
-    else if (process.env.MONGODB_URI && isValidConnectionString(process.env.MONGODB_URI)) {
-      mongoURI = process.env.MONGODB_URI.trim();
-      console.log('Using MONGODB_URI');
-    }
-    // Fallback to localhost for development
-    else {
-      mongoURI = 'mongodb://localhost:27017/recipehub';
+    if (process.env.DATABASE_URL && isValidConnectionString(process.env.DATABASE_URL)) {
+      connectionString = process.env.DATABASE_URL.trim();
+      console.log('Using DATABASE_URL');
+    } else if (process.env.POSTGRES_URL && isValidConnectionString(process.env.POSTGRES_URL)) {
+      connectionString = process.env.POSTGRES_URL.trim();
+      console.log('Using POSTGRES_URL');
+    } else if (process.env.POSTGRES_HOST) {
+      // Construct from individual parts
+      config = {
+        host: process.env.POSTGRES_HOST,
+        port: process.env.POSTGRES_PORT || 5432,
+        database: process.env.POSTGRES_DATABASE || 'recipehub',
+        username: process.env.POSTGRES_USER || 'postgres',
+        password: process.env.POSTGRES_PASSWORD || '',
+        dialect: 'postgres',
+        logging: process.env.NODE_ENV === 'development' ? console.log : false
+      };
+      console.log('Using PostgreSQL connection from environment variables');
+    } else {
+      // Fallback to localhost for development
       if (process.env.NODE_ENV === 'production') {
-        throw new Error('MONGODB_URI or MONGO_URL environment variable is required in production and must be a valid MongoDB connection string');
+        throw new Error('DATABASE_URL or POSTGRES_URL environment variable is required in production');
       }
-      console.log('Using localhost MongoDB (development mode)');
+      connectionString = 'postgres://postgres:postgres@localhost:5432/recipehub';
+      console.log('Using localhost PostgreSQL (development mode)');
     }
     
-    console.log(`Connecting to MongoDB...`);
-    // Remove deprecated options - they're not needed in mongoose 6+
-    const conn = await mongoose.connect(mongoURI);
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
-    return conn;
+    if (config) {
+      sequelize = new Sequelize(config.database, config.username, config.password, {
+        host: config.host,
+        port: config.port,
+        dialect: 'postgres',
+        logging: config.logging
+      });
+    } else {
+      sequelize = new Sequelize(connectionString, {
+        dialect: 'postgres',
+        logging: process.env.NODE_ENV === 'development' ? console.log : false,
+        dialectOptions: {
+          ssl: process.env.NODE_ENV === 'production' ? {
+            require: true,
+            rejectUnauthorized: false
+          } : false
+        }
+      });
+    }
+    
+    console.log('Connecting to PostgreSQL...');
+    await sequelize.authenticate();
+    console.log('PostgreSQL Connected');
+    return sequelize;
   } catch (error) {
-    console.error('MongoDB connection error:', error.message);
+    console.error('PostgreSQL connection error:', error.message);
     console.error('Full error:', error);
     throw error;
   }
 };
 
-module.exports = connectDB;
+const getSequelize = () => {
+  if (!sequelize) {
+    throw new Error('Database not connected. Call connectDB() first.');
+  }
+  return sequelize;
+};
 
+module.exports = { connectDB, getSequelize };

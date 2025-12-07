@@ -10,8 +10,8 @@ let openai = null;
 if (process.env.OPENAI_API_KEY) {
   try {
     openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
+  apiKey: process.env.OPENAI_API_KEY
+});
   } catch (error) {
     console.warn('OpenAI client initialization failed:', error.message);
   }

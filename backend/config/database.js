@@ -8,14 +8,13 @@ const connectDB = async () => {
       throw new Error('MONGODB_URI environment variable is required in production');
     }
     
-    const conn = await mongoose.connect(mongoURI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    });
+    // Remove deprecated options - they're not needed in mongoose 6+
+    const conn = await mongoose.connect(mongoURI);
     console.log(`MongoDB Connected: ${conn.connection.host}`);
     return conn;
   } catch (error) {
     console.error('MongoDB connection error:', error.message);
+    console.error('Full error:', error);
     throw error;
   }
 };

@@ -2,36 +2,41 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    // Check for MONGODB_URI first, then MONGO_URL (Railway default), then localhost
-    let mongoURI = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb://localhost:27017/recipehub';
-    
-    // Remove any whitespace and validate
-    mongoURI = mongoURI.trim();
-    
-    // Validate connection string format
-    if (!mongoURI.startsWith('mongodb://') && !mongoURI.startsWith('mongodb+srv://')) {
-      // If it's a placeholder or invalid, try MONGO_URL instead
-      if (process.env.MONGO_URL && process.env.MONGO_URL.trim().startsWith('mongodb')) {
-        mongoURI = process.env.MONGO_URL.trim();
-        console.log('Using MONGO_URL instead of invalid MONGODB_URI');
-      } else {
-        throw new Error(`Invalid MongoDB connection string. Must start with "mongodb://" or "mongodb+srv://". Got: ${mongoURI.substring(0, 50)}...`);
+    // Helper function to check if a connection string is valid
+    const isValidConnectionString = (uri) => {
+      if (!uri || typeof uri !== 'string') return false;
+      const trimmed = uri.trim();
+      if (trimmed.length === 0) return false;
+      if (!trimmed.startsWith('mongodb://') && !trimmed.startsWith('mongodb+srv://')) return false;
+      // Check for placeholder values
+      if (trimmed.includes('your-username') || trimmed.includes('your-password') || 
+          trimmed.includes('<password>') || trimmed.includes('<username>') ||
+          trimmed.includes('cluster.mongodb.net') && (trimmed.includes('your-') || trimmed.includes('<'))) {
+        return false;
       }
-    }
+      return true;
+    };
     
-    // Check for placeholder values
-    if (mongoURI.includes('your-username') || mongoURI.includes('your-password') || mongoURI.includes('<password>') || mongoURI.includes('<username>')) {
-      // Try MONGO_URL if MONGODB_URI has placeholders
-      if (process.env.MONGO_URL && process.env.MONGO_URL.trim().startsWith('mongodb')) {
-        mongoURI = process.env.MONGO_URL.trim();
-        console.log('MONGODB_URI contains placeholders, using MONGO_URL instead');
-      } else {
-        throw new Error('MongoDB connection string contains placeholder values. Please set a valid MONGODB_URI or MONGO_URL.');
+    // Prioritize MONGO_URL (Railway default) if MONGODB_URI is invalid
+    let mongoURI = null;
+    
+    // Check MONGO_URL first (Railway's default)
+    if (process.env.MONGO_URL && isValidConnectionString(process.env.MONGO_URL)) {
+      mongoURI = process.env.MONGO_URL.trim();
+      console.log('Using MONGO_URL from Railway');
+    }
+    // Then check MONGODB_URI if MONGO_URL is not available
+    else if (process.env.MONGODB_URI && isValidConnectionString(process.env.MONGODB_URI)) {
+      mongoURI = process.env.MONGODB_URI.trim();
+      console.log('Using MONGODB_URI');
+    }
+    // Fallback to localhost for development
+    else {
+      mongoURI = 'mongodb://localhost:27017/recipehub';
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('MONGODB_URI or MONGO_URL environment variable is required in production and must be a valid MongoDB connection string');
       }
-    }
-    
-    if ((!process.env.MONGODB_URI || mongoURI.includes('your-username')) && !process.env.MONGO_URL && process.env.NODE_ENV === 'production') {
-      throw new Error('MONGODB_URI or MONGO_URL environment variable is required in production');
+      console.log('Using localhost MongoDB (development mode)');
     }
     
     console.log(`Connecting to MongoDB...`);

@@ -2,10 +2,11 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/recipehub';
+    // Check for MONGODB_URI first, then MONGO_URL (Railway default), then localhost
+    const mongoURI = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb://localhost:27017/recipehub';
     
-    if (!process.env.MONGODB_URI && process.env.NODE_ENV === 'production') {
-      throw new Error('MONGODB_URI environment variable is required in production');
+    if (!process.env.MONGODB_URI && !process.env.MONGO_URL && process.env.NODE_ENV === 'production') {
+      throw new Error('MONGODB_URI or MONGO_URL environment variable is required in production');
     }
     
     // Remove deprecated options - they're not needed in mongoose 6+

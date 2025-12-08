@@ -23,10 +23,21 @@ app.use(cors({
       'http://localhost:5175'
     ].filter(Boolean);
     
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
+    // In production, only allow specified origins
+    // In development, allow all localhost origins
+    if (process.env.NODE_ENV === 'production') {
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
     } else {
-      callback(null, true); // Allow all origins in development
+      // Development: allow localhost origins
+      if (origin.includes('localhost') || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, true); // Allow in development for testing
+      }
     }
   },
   credentials: true

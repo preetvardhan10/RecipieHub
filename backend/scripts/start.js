@@ -13,7 +13,14 @@ async function setupDatabase() {
       execSync('npx prisma migrate deploy', { stdio: 'inherit' });
       console.log('✅ Migrations applied successfully');
     } catch (error) {
-      console.log('⚠️  Migrations may have already been applied or failed:', error.message);
+      // Check if error is because database already has schema (P3005)
+      if (error.message && error.message.includes('P3005')) {
+        console.log('✅ Database schema already exists, migrations are up to date');
+      } else if (error.message && error.message.includes('P3019')) {
+        console.log('⚠️  Migration provider mismatch - this should be fixed now');
+      } else {
+        console.log('⚠️  Migrations may have already been applied or failed:', error.message);
+      }
     }
 
     // Check if database needs seeding

@@ -22,6 +22,34 @@ postgresql://neondb_owner:npg_4D5wEuaSWObU@ep-snowy-hall-ahjaamyt-pooler.c-3.us-
 
 ### Step 2: Deploy to Render
 
+**Choose one method:**
+
+#### Option A: New Web Service (Recommended - More Control)
+
+1. **Go to Render Dashboard:**
+   - Visit https://dashboard.render.com
+   - Sign up or log in
+
+2. **Create New Web Service:**
+   - Click "New +" → "Web Service"
+   - Connect your GitHub account
+   - Select repository: `preetvardhan10/RecipieHub`
+   - Click "Connect"
+
+3. **Configure the service:**
+   - **Name:** `recipehub-backend`
+   - **Environment:** `Node`
+   - **Region:** Choose closest to you
+   - **Branch:** `main`
+   - **Root Directory:** `backend` ⚠️ **IMPORTANT!**
+   - **Build Command:** `npm install && npm run prisma:generate`
+   - **Start Command:** `npm start`
+   - **Plan:** Free (or paid if you prefer)
+
+4. Click "Create Web Service"
+
+#### Option B: Blueprint (Easier - Auto-configures from render.yaml)
+
 1. **Go to Render Dashboard:**
    - Visit https://dashboard.render.com
    - Sign up or log in
@@ -33,6 +61,8 @@ postgresql://neondb_owner:npg_4D5wEuaSWObU@ep-snowy-hall-ahjaamyt-pooler.c-3.us-
    - Click "Apply"
 
 3. **Render will auto-detect `backend/render.yaml`** ✅
+   - It will create the service with settings from the YAML file
+   - You still need to add environment variables manually
 
 ### Step 3: Set Environment Variables
 

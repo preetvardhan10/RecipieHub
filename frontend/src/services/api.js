@@ -3,6 +3,14 @@ import axios from 'axios';
 // Get API URL and ensure it ends with /api
 let API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
+// Fix common issues with environment variable values
+// Remove "Value:" prefix if accidentally included
+if (API_URL.startsWith('Value: ')) {
+  API_URL = API_URL.replace('Value: ', '');
+}
+// Remove any leading/trailing whitespace
+API_URL = API_URL.trim();
+
 // Ensure API_URL ends with /api
 if (!API_URL.endsWith('/api')) {
   API_URL = API_URL.endsWith('/') ? `${API_URL}api` : `${API_URL}/api`;

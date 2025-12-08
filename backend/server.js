@@ -53,6 +53,38 @@ app.use('/api/mealplans', require('./routes/mealPlanRoutes'));
 app.use('/api/ai', require('./routes/aiRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 
+// Root route - API information
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'RecipeHub API is running',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      auth: {
+        signup: 'POST /api/auth/signup',
+        login: 'POST /api/auth/login',
+        me: 'GET /api/auth/me'
+      },
+      recipes: {
+        list: 'GET /api/recipes',
+        create: 'POST /api/recipes',
+        get: 'GET /api/recipes/:id',
+        update: 'PUT /api/recipes/:id',
+        delete: 'DELETE /api/recipes/:id'
+      },
+      ai: {
+        suggest: 'POST /api/ai/suggest'
+      },
+      mealplans: {
+        list: 'GET /api/mealplans',
+        create: 'POST /api/mealplans'
+      }
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({

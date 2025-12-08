@@ -23,14 +23,20 @@ app.use(cors({
       'http://localhost:5175'
     ].filter(Boolean);
     
-    // In production, allow specified origins or any vercel.app origin
-    // In development, allow all localhost origins
+    // Always allow vercel.app origins
+    if (origin?.includes('vercel.app')) {
+      console.log(`✅ CORS: Allowing Vercel origin: ${origin}`);
+      return callback(null, true);
+    }
+    
+    // In production, allow specified origins
     if (process.env.NODE_ENV === 'production') {
-      if (allowedOrigins.includes(origin) || origin?.includes('vercel.app')) {
+      if (allowedOrigins.includes(origin)) {
+        console.log(`✅ CORS: Allowing configured origin: ${origin}`);
         callback(null, true);
       } else {
         // Log for debugging but allow in production for now
-        console.warn(`CORS: Origin ${origin} not in allowed list, but allowing for now`);
+        console.warn(`⚠️  CORS: Origin ${origin} not in allowed list, but allowing for now`);
         callback(null, true);
       }
     } else {
@@ -42,7 +48,9 @@ app.use(cors({
       }
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

@@ -1,15 +1,52 @@
-const prisma = require('../prisma/client');
+const { PrismaClient } = require('@prisma/client');
 const dotenv = require('dotenv');
+const path = require('path');
 
-dotenv.config();
+// Ensure .env is loaded before creating Prisma Client
+dotenv.config({ path: path.join(__dirname, '../.env') });
+
+// Check for DATABASE_URL - provide helpful error if missing
+if (!process.env.DATABASE_URL) {
+  console.error('❌ DATABASE_URL is not set in .env file');
+  console.error('📝 Please add DATABASE_URL to your .env file:');
+  console.error('   DATABASE_URL=postgresql://user:password@host:port/database?sslmode=require');
+  console.error('');
+  console.error('💡 If you have MONGODB_URI in your .env, please replace it with DATABASE_URL');
+  console.error('   Example (Neon DB): DATABASE_URL=postgresql://user:pass@ep-xxx.us-east-1.aws.neon.tech/db?sslmode=require');
+}
+
+// Create Prisma Client instance
+const prisma = new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+});
 
 const connectDB = async () => {
   try {
+    // Check if DATABASE_URL is set
+    if (!process.env.DATABASE_URL) {
+      throw new Error('DATABASE_URL environment variable is not set. Please add it to your .env file.');
+    }
+    
     await prisma.$connect();
     console.log('✅ PostgreSQL Connected via Prisma');
   } catch (error) {
     console.error('❌ PostgreSQL connection error:', error.message);
-    process.exit(1);
+    
+    if (error.message.includes('DATABASE_URL')) {
+      console.error('');
+      console.error('📝 To fix this:');
+      console.error('   1. Open backend/.env file');
+      console.error('   2. Add: DATABASE_URL=your-postgresql-connection-string');
+      console.error('   3. If you see MONGODB_URI, replace it with DATABASE_URL');
+      console.error('');
+    }
+    
+    // Don't exit in development - allow server to start for testing other parts
+    if (process.env.NODE_ENV === 'production') {
+      process.exit(1);
+    } else {
+      console.warn('⚠️  Server will continue but database operations will fail until DATABASE_URL is set.');
+    }
   }
 };
 

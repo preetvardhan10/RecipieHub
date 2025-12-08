@@ -19,8 +19,12 @@ const Dashboard = () => {
           mealPlanAPI.getMealPlans({ page: 1, limit: 3 }),
         ]);
 
-        setRecentRecipes(recipesRes.data.data.recipes);
-        setMealPlans(mealPlansRes.data.data.mealPlans);
+        // Handle different response structures
+        const recipes = recipesRes?.data?.data?.recipes || recipesRes?.data?.recipes || [];
+        const mealPlans = mealPlansRes?.data?.data?.mealPlans || mealPlansRes?.data?.mealPlans || [];
+
+        setRecentRecipes(recipes);
+        setMealPlans(mealPlans);
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
         console.error('Error details:', {
@@ -28,7 +32,12 @@ const Dashboard = () => {
           response: error.response?.data,
           status: error.response?.status,
           url: error.config?.url,
+          baseURL: error.config?.baseURL,
         });
+        
+        // Set empty arrays on error
+        setRecentRecipes([]);
+        setMealPlans([]);
       } finally {
         setLoading(false);
       }

@@ -39,17 +39,45 @@ const ExploreRecipes = () => {
       });
 
       const response = await recipeAPI.getRecipes(params);
-      setRecipes(response.data.data.recipes);
-      setPagination(response.data.data.pagination);
+      
+      // Check if response and data exist
+      if (!response || !response.data) {
+        throw new Error('Invalid response from server');
+      }
+
+      // Handle different response structures
+      const recipes = response.data?.data?.recipes || response.data?.recipes || [];
+      const paginationData = response.data?.data?.pagination || response.data?.pagination || {
+        currentPage: 1,
+        totalPages: 1,
+        totalResults: 0,
+      };
+
+      setRecipes(recipes);
+      setPagination(paginationData);
     } catch (error) {
       console.error('Failed to fetch recipes:', error);
       console.error('Error details:', {
         message: error.message,
         response: error.response?.data,
         status: error.response?.status,
+        config: error.config,
       });
-      // Show error to user
-      alert(`Failed to load recipes: ${error.response?.data?.message || error.message}`);
+      
+      // Set empty state on error
+      setRecipes([]);
+      setPagination({
+        currentPage: 1,
+        totalPages: 1,
+        totalResults: 0,
+      });
+      
+      // Show error to user only if it's not a network error
+      if (error.response) {
+        alert(`Failed to load recipes: ${error.response?.data?.message || error.message}`);
+      } else {
+        console.error('Network error - check API URL and CORS settings');
+      }
     } finally {
       setLoading(false);
     }

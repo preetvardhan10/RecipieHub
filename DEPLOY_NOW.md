@@ -6,12 +6,26 @@ Follow these steps to deploy your RecipeHub application to production.
 
 - ✅ Code pushed to GitHub: `https://github.com/preetvardhan10/RecipieHub`
 - ✅ PostgreSQL database (Neon DB recommended - you already have one!)
-- ✅ Render account (sign up at https://render.com - free tier available)
-- ✅ Vercel account (sign up at https://vercel.com - free tier available)
+- ✅ Backend hosting: **Railway** (recommended) or Render
+- ✅ Frontend hosting: **Vercel** (recommended)
 
 ---
 
-## Part 1: Deploy Backend to Render
+## 🚂 Quick Start: Deploy to Railway (Recommended)
+
+**Railway is simpler and faster than Render!**
+
+👉 **See `RAILWAY_DEPLOY.md` for complete Railway deployment guide**
+
+**Quick steps:**
+1. Go to https://railway.app → New Project → Deploy from GitHub
+2. Select your repo → Set Root Directory to `backend`
+3. Add environment variables (see RAILWAY_DEPLOY.md)
+4. Deploy! Railway auto-detects Node.js and runs Prisma generate
+
+---
+
+## Part 1: Deploy Backend to Render (Alternative)
 
 ### Step 1: Get Your Database URL
 
@@ -42,7 +56,7 @@ postgresql://neondb_owner:npg_4D5wEuaSWObU@ep-snowy-hall-ahjaamyt-pooler.c-3.us-
    - **Region:** Choose closest to you
    - **Branch:** `main`
    - **Root Directory:** `backend` ⚠️ **IMPORTANT!**
-   - **Build Command:** `npm install && npm run prisma:generate`
+   - **Build Command:** npm install && npm run prisma:generate
    - **Start Command:** `npm start`
    - **Plan:** Free (or paid if you prefer)
 

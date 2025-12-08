@@ -1,12 +1,16 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+// Get API URL and ensure it ends with /api
+let API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
-// Log API URL for debugging (only in development)
-if (import.meta.env.DEV) {
-  console.log('🔗 API URL:', API_URL);
-  console.log('🔗 VITE_API_URL env:', import.meta.env.VITE_API_URL);
+// Ensure API_URL ends with /api
+if (!API_URL.endsWith('/api')) {
+  API_URL = API_URL.endsWith('/') ? `${API_URL}api` : `${API_URL}/api`;
 }
+
+// Log API URL for debugging (always log in production to help debug)
+console.log('🔗 API URL:', API_URL);
+console.log('🔗 VITE_API_URL env:', import.meta.env.VITE_API_URL);
 
 // Create axios instance
 const api = axios.create({

@@ -50,28 +50,25 @@ Railway will auto-detect it's a Node.js project, but we need to configure it:
    - **Start Command:** `npm start`
    - **Note:** The `postinstall` script also runs `prisma generate`, but it's safer to be explicit in the build command ✅
 
-3. **Go to Variables tab** and add these environment variables:
+3. **Go to Variables tab** and add these environment variables ⚠️ **CRITICAL!**
 
-```env
-NODE_ENV=production
-PORT=10000
-DATABASE_URL=postgresql://neondb_owner:npg_4D5wEuaSWObU@ep-snowy-hall-ahjaamyt-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require
-JWT_SECRET=your-strong-random-secret-key-here
-JWT_EXPIRES_IN=7d
-FRONTEND_URL=https://your-app.vercel.app
-OPENAI_API_KEY=sk-your-key (optional)
-```
+   **Click "New Variable" for each one:**
 
-**Generate JWT_SECRET:**
-```bash
-openssl rand -base64 32
-```
+   | Variable Name | Value | Required |
+   |--------------|-------|----------|
+   | `NODE_ENV` | `production` | ✅ Yes |
+   | `PORT` | `10000` | ✅ Yes |
+   | `DATABASE_URL` | `postgresql://neondb_owner:npg_4D5wEuaSWObU@ep-snowy-hall-ahjaamyt-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require` | ✅ **YES - CRITICAL!** |
+   | `JWT_SECRET` | Generate with: `openssl rand -base64 32` | ✅ Yes |
+   | `JWT_EXPIRES_IN` | `7d` | ✅ Yes |
+   | `FRONTEND_URL` | `https://placeholder.vercel.app` (update after frontend deploy) | ✅ Yes |
+   | `OPENAI_API_KEY` | `sk-your-key` | ❌ Optional |
 
-Or use: https://randomkeygen.com/
-
-**Important:** 
-- Set `FRONTEND_URL` to a placeholder for now (we'll update it after frontend deployment)
-- `OPENAI_API_KEY` is optional (fallback will be used if not provided)
+   **⚠️ IMPORTANT:** 
+   - **You MUST add `DATABASE_URL` in Railway Variables tab!** The `.env` file is NOT deployed to Railway.
+   - Generate `JWT_SECRET` using: `openssl rand -base64 32` or https://randomkeygen.com/
+   - Set `FRONTEND_URL` to a placeholder for now (we'll update it after frontend deployment)
+   - `OPENAI_API_KEY` is optional (fallback will be used if not provided)
 
 ### Step 4: Wait for Deployment
 

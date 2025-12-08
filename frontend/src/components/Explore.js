@@ -251,23 +251,23 @@ const Explore = () => {
 
             {/* Pagination */}
             {pagination.pages > 1 && (
-              <div className="flex justify-center items-center space-x-2 bg-white rounded-xl shadow-md p-4 border border-gray-100">
+              <div className="flex justify-center items-center space-x-4 bg-white rounded-xl shadow-md p-6 border border-gray-100 mt-8">
                 <button
                   onClick={() => setPagination({ ...pagination, page: pagination.page - 1 })}
                   disabled={pagination.page === 1}
-                  className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors font-medium"
+                  className="px-6 py-3 bg-white border-2 border-blue-600 text-blue-600 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400 hover:bg-blue-50 hover:border-blue-700 active:bg-blue-100 transition-all duration-200 font-semibold shadow-sm hover:shadow-md"
                 >
-                  Previous
+                  ← Previous
                 </button>
-                <span className="text-gray-700 px-4">
+                <span className="text-gray-700 px-6 py-2 bg-gray-50 rounded-lg font-semibold border border-gray-200">
                   Page {pagination.page} of {pagination.pages}
                 </span>
                 <button
                   onClick={() => setPagination({ ...pagination, page: pagination.page + 1 })}
                   disabled={pagination.page === pagination.pages}
-                  className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors font-medium"
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-300 hover:bg-blue-700 active:bg-blue-800 transition-all duration-200 font-semibold shadow-sm hover:shadow-md"
                 >
-                  Next
+                  Next →
                 </button>
               </div>
             )}

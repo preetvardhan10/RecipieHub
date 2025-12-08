@@ -6,6 +6,8 @@ const Home = () => {
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [totalRecipes, setTotalRecipes] = useState(0);
+  const [totalCuisines, setTotalCuisines] = useState(0);
 
   const getAllRecipes = () => {
     const userRecipes = JSON.parse(localStorage.getItem('userRecipes') || '[]');
@@ -17,6 +19,11 @@ const Home = () => {
     const allRecipes = getAllRecipes();
     const sortedRecipes = allRecipes.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
     setRecipes(sortedRecipes.slice(0, 9)); // Show top 9 recipes
+    
+    // Calculate total recipes and cuisines
+    setTotalRecipes(allRecipes.length);
+    const cuisines = new Set(allRecipes.map(r => r.cuisine).filter(Boolean));
+    setTotalCuisines(cuisines.size);
   }, []);
 
   const handleSearch = (e) => {
@@ -81,7 +88,7 @@ const Home = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
             <div>
-              <div className="text-4xl font-bold text-blue-600">{recipes.length}+</div>
+              <div className="text-4xl font-bold text-blue-600">{totalRecipes}+</div>
               <div className="text-gray-600 mt-1">Featured Recipes</div>
             </div>
             <div>
@@ -89,7 +96,7 @@ const Home = () => {
               <div className="text-gray-600 mt-1">Active Cooks</div>
             </div>
             <div>
-              <div className="text-4xl font-bold text-blue-600">50+</div>
+              <div className="text-4xl font-bold text-blue-600">{totalCuisines}+</div>
               <div className="text-gray-600 mt-1">Cuisines</div>
             </div>
           </div>

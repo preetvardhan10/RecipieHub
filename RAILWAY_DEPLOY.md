@@ -41,9 +41,9 @@ Railway will auto-detect it's a Node.js project, but we need to configure it:
 2. **Go to Settings tab:**
 
    - **Root Directory:** Set to `backend` ⚠️ **IMPORTANT!**
-   - **Build Command:** Leave empty (Railway auto-detects `npm install`)
+   - **Build Command:** `npm install && npm run prisma:generate` ⚠️ **REQUIRED!**
    - **Start Command:** `npm start`
-   - Railway will automatically run `postinstall` which includes `prisma generate` ✅
+   - **Note:** The `postinstall` script also runs `prisma generate`, but it's safer to be explicit in the build command ✅
 
 3. **Go to Variables tab** and add these environment variables:
 

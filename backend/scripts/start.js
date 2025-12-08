@@ -47,10 +47,15 @@ async function setupDatabase() {
 // Run setup, then start server
 setupDatabase().then(() => {
   console.log('🚀 Starting server...');
+  // Import and start the server
+  const path = require('path');
+  process.chdir(path.join(__dirname, '..'));
   require('../server.js');
 }).catch((error) => {
   console.error('❌ Failed to setup database:', error);
   console.log('🚀 Starting server anyway...');
+  const path = require('path');
+  process.chdir(path.join(__dirname, '..'));
   require('../server.js');
 });
 

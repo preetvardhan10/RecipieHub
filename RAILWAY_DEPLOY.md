@@ -41,7 +41,12 @@ Railway will auto-detect it's a Node.js project, but we need to configure it:
 2. **Go to Settings tab:**
 
    - **Root Directory:** Set to `backend` ⚠️ **IMPORTANT!**
-   - **Build Command:** `npm install && npm run prisma:generate` ⚠️ **REQUIRED!**
+   - **Builder:** If Railway detected Dockerfile, you can either:
+     - **Option A (Recommended):** Switch to **Nixpacks** - Go to Settings → Builder → Select "Nixpacks"
+     - **Option B:** Keep Dockerfile (I've fixed it to work correctly)
+   - **Build Command:** 
+     - If using Nixpacks: `npm install && npm run prisma:generate`
+     - If using Dockerfile: Leave empty (Dockerfile handles it)
    - **Start Command:** `npm start`
    - **Note:** The `postinstall` script also runs `prisma generate`, but it's safer to be explicit in the build command ✅
 

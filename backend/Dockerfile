@@ -2,17 +2,20 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files from backend directory
-COPY backend/package*.json ./
+# Copy package files
+COPY package*.json ./
 
-# Install dependencies
-RUN npm install --production
+# Install dependencies (including dev dependencies for Prisma)
+RUN npm install
 
-# Copy application files from backend directory
-COPY backend/ ./
+# Generate Prisma Client
+RUN npx prisma generate
+
+# Copy application files
+COPY . .
 
 # Expose port
 EXPOSE 10000
 
 # Start the application
-CMD ["node", "index.js"]
+CMD ["node", "server.js"]

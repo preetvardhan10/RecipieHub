@@ -39,14 +39,28 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     // Log error details for debugging
-    console.error('❌ API Error:', {
+    const errorDetails = {
       message: error.message,
       status: error.response?.status,
+      statusText: error.response?.statusText,
       data: error.response?.data,
       url: error.config?.url,
       baseURL: error.config?.baseURL,
       fullURL: error.config?.baseURL + error.config?.url,
-    });
+      code: error.code,
+    };
+    
+    console.error('❌ API Error:', errorDetails);
+    
+    // Network errors (CORS, connection refused, etc.)
+    if (!error.response) {
+      console.error('🌐 Network Error Details:', {
+        message: error.message,
+        code: error.code,
+        fullURL: error.config?.baseURL + error.config?.url,
+        suggestion: 'Check if backend is running and CORS is configured correctly'
+      });
+    }
 
     if (error.response?.status === 401) {
       localStorage.removeItem('token');

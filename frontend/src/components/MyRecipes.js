@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import config from '../config';
 
 const MyRecipes = () => {
   const [recipes, setRecipes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
@@ -19,36 +17,25 @@ const MyRecipes = () => {
     fetchMyRecipes();
   }, [navigate]);
 
-  const fetchMyRecipes = async () => {
-    try {
-      const userData = localStorage.getItem('user');
-      if (!userData) return;
-      
-      const currentUser = JSON.parse(userData);
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${config.API_BASE_URL}/api/users/${currentUser.id}/recipes`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setRecipes(response.data);
-    } catch (error) {
-      console.error('Error fetching recipes:', error);
-    } finally {
-      setLoading(false);
-    }
+  const fetchMyRecipes = () => {
+    const userRecipes = JSON.parse(localStorage.getItem('userRecipes') || '[]');
+    const userData = localStorage.getItem('user');
+    if (!userData) return;
+    
+    const currentUser = JSON.parse(userData);
+    // Filter recipes by current user
+    const myRecipes = userRecipes.filter(r => (r.author._id || r.author.id) === (currentUser.id || currentUser._id));
+    setRecipes(myRecipes);
+    setLoading(false);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = (id) => {
     if (!window.confirm('Are you sure you want to delete this recipe?')) return;
 
-    try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`${config.API_BASE_URL}/api/recipes/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      fetchMyRecipes();
-    } catch (error) {
-      console.error('Error deleting recipe:', error);
-    }
+    const userRecipes = JSON.parse(localStorage.getItem('userRecipes') || '[]');
+    const updatedRecipes = userRecipes.filter(r => r._id !== id);
+    localStorage.setItem('userRecipes', JSON.stringify(updatedRecipes));
+    fetchMyRecipes();
   };
 
   if (loading) {

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
-import config from '../config';
+import { mockRecipes, getRecipeById } from '../data/mockData';
 
 const Profile = () => {
   const [user, setUser] = useState(null);
@@ -19,77 +18,52 @@ const Profile = () => {
       return;
     }
     const currentUser = JSON.parse(userData);
-    fetchProfile(currentUser.id);
-    fetchUserRecipes(currentUser.id);
-    fetchFavorites(currentUser.id);
+    fetchProfile(currentUser);
+    fetchUserRecipes(currentUser);
+    fetchFavorites();
   }, [navigate]);
 
-  const fetchProfile = async (userId) => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${config.API_BASE_URL}/api/users/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setUser(response.data.user);
-      setFormData({
-        name: response.data.user.name,
-        bio: response.data.user.bio || '',
-        avatar: response.data.user.avatar || ''
-      });
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    } finally {
-      setLoading(false);
-    }
+  const fetchProfile = (currentUser) => {
+    const profile = JSON.parse(localStorage.getItem('userProfile') || JSON.stringify({
+      name: currentUser.name,
+      email: currentUser.email,
+      bio: '',
+      avatar: ''
+    }));
+    setUser({ ...currentUser, ...profile });
+    setFormData({
+      name: profile.name || currentUser.name,
+      bio: profile.bio || '',
+      avatar: profile.avatar || ''
+    });
+    setLoading(false);
   };
 
-  const fetchUserRecipes = async (userId) => {
-    try {
-      const response = await axios.get(`${config.API_BASE_URL}/api/users/${userId}/recipes`);
-      setRecipes(response.data);
-    } catch (error) {
-      console.error('Error fetching recipes:', error);
-    }
+  const fetchUserRecipes = (currentUser) => {
+    const userRecipes = JSON.parse(localStorage.getItem('userRecipes') || '[]');
+    const myRecipes = userRecipes.filter(r => (r.author._id || r.author.id) === (currentUser.id || currentUser._id));
+    setRecipes(myRecipes);
   };
 
-  const fetchFavorites = async (userId) => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${config.API_BASE_URL}/api/users/${userId}/favorites`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setFavorites(response.data);
-    } catch (error) {
-      console.error('Error fetching favorites:', error);
-    }
+  const fetchFavorites = () => {
+    const favoriteIds = JSON.parse(localStorage.getItem('favorites') || '[]');
+    const favoriteRecipes = favoriteIds.map(id => getRecipeById(id)).filter(Boolean);
+    setFavorites(favoriteRecipes);
   };
 
-  const handleUpdate = async (e) => {
+  const handleUpdate = (e) => {
     e.preventDefault();
-    try {
-      const token = localStorage.getItem('token');
-      const userData = localStorage.getItem('user');
-      const currentUser = JSON.parse(userData);
-      
-      const response = await axios.put(
-        `${config.API_BASE_URL}/api/users/${currentUser.id}`,
-        formData,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      
-      setUser(response.data);
-      localStorage.setItem('user', JSON.stringify({
-        id: response.data._id,
-        name: response.data.name,
-        email: response.data.email,
-        role: response.data.role
-      }));
-      setEditing(false);
-    } catch (error) {
-      console.error('Error updating profile:', error);
-    }
+    const userData = localStorage.getItem('user');
+    const currentUser = JSON.parse(userData);
+    
+    localStorage.setItem('userProfile', JSON.stringify(formData));
+    localStorage.setItem('user', JSON.stringify({
+      ...currentUser,
+      name: formData.name
+    }));
+    
+    setUser({ ...currentUser, ...formData });
+    setEditing(false);
   };
 
   if (loading) {

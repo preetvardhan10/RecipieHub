@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
-import config from '../config';
+import { mockRecipes, getCuisines } from '../data/mockData';
 
 const Explore = () => {
   const [recipes, setRecipes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
     search: '',
     cuisine: '',
@@ -19,31 +18,65 @@ const Explore = () => {
     pages: 0
   });
 
+  const getAllRecipes = () => {
+    const userRecipes = JSON.parse(localStorage.getItem('userRecipes') || '[]');
+    return [...mockRecipes, ...userRecipes];
+  };
+
   useEffect(() => {
     fetchRecipes();
   }, [filters, pagination.page]);
 
-  const fetchRecipes = async () => {
+  const fetchRecipes = () => {
     setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        page: pagination.page,
-        limit: pagination.limit,
-        sortBy: filters.sortBy
-      });
-      
-      if (filters.search) params.append('search', filters.search);
-      if (filters.cuisine) params.append('cuisine', filters.cuisine);
-      if (filters.difficulty) params.append('difficulty', filters.difficulty);
-
-      const response = await axios.get(`${config.API_BASE_URL}/api/recipes?${params}`);
-      setRecipes(response.data.recipes);
-      setPagination(response.data.pagination);
-    } catch (error) {
-      console.error('Error fetching recipes:', error);
-    } finally {
-      setLoading(false);
+    
+    // Get all recipes (mock + user)
+    let filtered = getAllRecipes();
+    
+    // Apply filters
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filtered = filtered.filter(recipe => 
+        recipe.title.toLowerCase().includes(searchLower) ||
+        recipe.description.toLowerCase().includes(searchLower) ||
+        recipe.ingredients.some(ing => ing.name.toLowerCase().includes(searchLower))
+      );
     }
+    
+    if (filters.cuisine) {
+      filtered = filtered.filter(recipe => recipe.cuisine === filters.cuisine);
+    }
+    
+    if (filters.difficulty) {
+      filtered = filtered.filter(recipe => recipe.difficulty === filters.difficulty);
+    }
+    
+    // Sort
+    if (filters.sortBy === 'rating') {
+      filtered.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
+    } else if (filters.sortBy === 'time') {
+      filtered.sort((a, b) => a.cookingTime - b.cookingTime);
+    } else {
+      filtered.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    }
+    
+    // Update pagination
+    const total = filtered.length;
+    const pages = Math.ceil(total / pagination.limit);
+    
+    // Apply pagination
+    const startIndex = (pagination.page - 1) * pagination.limit;
+    const endIndex = startIndex + pagination.limit;
+    filtered = filtered.slice(startIndex, endIndex);
+    
+    setRecipes(filtered);
+    setPagination({
+      ...pagination,
+      total,
+      pages
+    });
+    
+    setLoading(false);
   };
 
   const handleFilterChange = (key, value) => {
@@ -81,14 +114,13 @@ const Explore = () => {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">All Cuisines</option>
-                <option value="Italian">Italian</option>
-                <option value="Chinese">Chinese</option>
-                <option value="Indian">Indian</option>
-                <option value="Mexican">Mexican</option>
-                <option value="American">American</option>
-                <option value="Thai">Thai</option>
-                <option value="Japanese">Japanese</option>
-                <option value="French">French</option>
+                {(() => {
+                  const allRecipes = getAllRecipes();
+                  const cuisines = [...new Set(allRecipes.map(r => r.cuisine).filter(Boolean))];
+                  return cuisines.map(cuisine => (
+                    <option key={cuisine} value={cuisine}>{cuisine}</option>
+                  ));
+                })()}
               </select>
             </div>
 

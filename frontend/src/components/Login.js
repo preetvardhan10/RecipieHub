@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
-import config from '../config';
 
 const Login = ({ onLogin }) => {
   const [formData, setFormData] = useState({
@@ -18,19 +16,38 @@ const Login = ({ onLogin }) => {
     });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    try {
-      const response = await axios.post(`${config.API_BASE_URL}/api/auth/login`, formData);
-      onLogin(response.data.token, response.data.user);
-    } catch (error) {
-      setError(error.response?.data?.error || 'Login failed');
-    } finally {
+    // Check localStorage for registered users
+    const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+    const user = registeredUsers.find(u => u.email === formData.email);
+
+    if (!user) {
+      setError('Email not found. Please register first.');
       setLoading(false);
+      return;
     }
+
+    if (user.password !== formData.password) {
+      setError('Incorrect password');
+      setLoading(false);
+      return;
+    }
+
+    // Create mock token
+    const mockToken = 'mock_token_' + Date.now();
+    const userData = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      _id: user.id
+    };
+
+    onLogin(mockToken, userData);
+    setLoading(false);
   };
 
   return (

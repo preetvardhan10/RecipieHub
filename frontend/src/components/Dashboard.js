@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
-import config from '../config';
+import { mockRecipes } from '../data/mockData';
 
 const Dashboard = ({ onLogout }) => {
   const [user, setUser] = useState(null);
@@ -17,35 +16,25 @@ const Dashboard = ({ onLogout }) => {
     }
   }, []);
 
-  const fetchStats = async () => {
-    try {
-      const userData = localStorage.getItem('user');
-      const currentUser = JSON.parse(userData);
-      const token = localStorage.getItem('token');
-      
-      const [recipesRes, favoritesRes] = await Promise.all([
-        axios.get(`${config.API_BASE_URL}/api/users/${currentUser.id}/recipes`),
-        axios.get(`${config.API_BASE_URL}/api/users/${currentUser.id}/favorites`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-      ]);
-      
-      setStats({
-        recipes: recipesRes.data.length,
-        favorites: favoritesRes.data.length
-      });
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    }
+  const fetchStats = () => {
+    // Mock stats - in a real app, you'd filter by user ID
+    const userRecipes = localStorage.getItem('userRecipes');
+    const favorites = localStorage.getItem('favorites');
+    
+    setStats({
+      recipes: userRecipes ? JSON.parse(userRecipes).length : 0,
+      favorites: favorites ? JSON.parse(favorites).length : 0
+    });
   };
 
-  const fetchRecentRecipes = async () => {
-    try {
-      const response = await axios.get(`${config.API_BASE_URL}/api/recipes?limit=3`);
-      setRecentRecipes(response.data.recipes);
-    } catch (error) {
-      console.error('Error fetching recent recipes:', error);
-    }
+  const fetchRecentRecipes = () => {
+    // Show 3 most recent recipes from all recipes
+    const userRecipes = JSON.parse(localStorage.getItem('userRecipes') || '[]');
+    const allRecipes = [...mockRecipes, ...userRecipes];
+    const sorted = allRecipes.sort((a, b) => 
+      new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+    );
+    setRecentRecipes(sorted.slice(0, 3));
   };
 
   return (

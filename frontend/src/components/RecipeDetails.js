@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
-import config from '../config';
+import { getRecipeById } from '../data/mockData';
 
 const RecipeDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [recipe, setRecipe] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [user, setUser] = useState(null);
   const [review, setReview] = useState({ rating: 5, comment: '' });
@@ -21,44 +20,50 @@ const RecipeDetails = () => {
     fetchRecipe();
   }, [id]);
 
-  const fetchRecipe = async () => {
-    try {
-      const response = await axios.get(`${config.API_BASE_URL}/api/recipes/${id}`);
-      setRecipe(response.data);
-      const userData = localStorage.getItem('user');
-      if (userData) {
-      const currentUser = JSON.parse(userData);
-      setIsFavorite(response.data.favorites?.some(fav => fav.toString() === currentUser.id || fav === currentUser.id));
-      }
-    } catch (error) {
-      console.error('Error fetching recipe:', error);
-    } finally {
-      setLoading(false);
+  const fetchRecipe = () => {
+    // Check user recipes first, then mock recipes
+    const userRecipes = JSON.parse(localStorage.getItem('userRecipes') || '[]');
+    let foundRecipe = userRecipes.find(r => r._id === id);
+    
+    if (!foundRecipe) {
+      foundRecipe = getRecipeById(id);
     }
+    
+    if (foundRecipe) {
+      // Deep clone to avoid mutating original
+      const recipeCopy = JSON.parse(JSON.stringify(foundRecipe));
+      
+      // Add totalRatings for display
+      recipeCopy.totalRatings = recipeCopy.reviews?.length || 0;
+      
+      // Check if favorited
+      const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+      setIsFavorite(favorites.includes(id));
+      
+      setRecipe(recipeCopy);
+    }
+    setLoading(false);
   };
 
-  const handleFavorite = async () => {
+  const handleFavorite = () => {
     if (!user) {
       navigate('/login');
       return;
     }
 
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `${config.API_BASE_URL}/api/recipes/${id}/favorite`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      setIsFavorite(response.data.isFavorite);
-    } catch (error) {
-      console.error('Error toggling favorite:', error);
+    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+    if (isFavorite) {
+      const newFavorites = favorites.filter(favId => favId !== id);
+      localStorage.setItem('favorites', JSON.stringify(newFavorites));
+      setIsFavorite(false);
+    } else {
+      favorites.push(id);
+      localStorage.setItem('favorites', JSON.stringify(favorites));
+      setIsFavorite(true);
     }
   };
 
-  const handleReviewSubmit = async (e) => {
+  const handleReviewSubmit = (e) => {
     e.preventDefault();
     if (!user) {
       navigate('/login');
@@ -66,38 +71,46 @@ const RecipeDetails = () => {
     }
 
     setSubmitting(true);
-    try {
-      const token = localStorage.getItem('token');
-      await axios.post(
-        `${config.API_BASE_URL}/api/recipes/${id}/reviews`,
-        review,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      setReview({ rating: 5, comment: '' });
-      fetchRecipe();
-    } catch (error) {
-      console.error('Error submitting review:', error);
-    } finally {
-      setSubmitting(false);
+    
+    // Add review to recipe
+    const newReview = {
+      ...review,
+      user: { name: user.name },
+      createdAt: new Date().toISOString()
+    };
+    
+    const recipeCopy = JSON.parse(JSON.stringify(recipe));
+    if (!recipeCopy.reviews) {
+      recipeCopy.reviews = [];
     }
+    recipeCopy.reviews.push(newReview);
+    
+    // Recalculate average rating
+    const totalRating = recipeCopy.reviews.reduce((sum, r) => sum + r.rating, 0);
+    recipeCopy.averageRating = (totalRating / recipeCopy.reviews.length).toFixed(1);
+    recipeCopy.totalRatings = recipeCopy.reviews.length;
+    
+    // Update in localStorage if it's a user recipe
+    const userRecipes = JSON.parse(localStorage.getItem('userRecipes') || '[]');
+    const recipeIndex = userRecipes.findIndex(r => r._id === id);
+    if (recipeIndex !== -1) {
+      userRecipes[recipeIndex] = recipeCopy;
+      localStorage.setItem('userRecipes', JSON.stringify(userRecipes));
+    }
+    
+    setRecipe(recipeCopy);
+    setReview({ rating: 5, comment: '' });
+    setSubmitting(false);
   };
 
-  const canEdit = user && recipe && ((recipe.author._id || recipe.author.id) === user.id || user.role === 'admin');
+  const canEdit = user && recipe && ((recipe.author._id || recipe.author.id) === (user.id || user._id));
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!window.confirm('Are you sure you want to delete this recipe?')) return;
-
-    try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`${config.API_BASE_URL}/api/recipes/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      navigate('/explore');
-    } catch (error) {
-      console.error('Error deleting recipe:', error);
-    }
+    // In a real app, this would delete from the backend
+    // For now, just navigate away
+    alert('In standalone mode, recipes cannot be deleted. This would normally delete the recipe from the database.');
+    navigate('/explore');
   };
 
   if (loading) {

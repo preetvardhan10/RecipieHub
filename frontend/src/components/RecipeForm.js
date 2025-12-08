@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import config from '../config';
+import { getRecipeById } from '../data/mockData';
 
 const RecipeForm = () => {
   const { id } = useParams();
@@ -26,10 +25,16 @@ const RecipeForm = () => {
     }
   }, [id]);
 
-  const fetchRecipe = async () => {
-    try {
-      const response = await axios.get(`${config.API_BASE_URL}/api/recipes/${id}`);
-      const recipe = response.data;
+  const fetchRecipe = () => {
+    // Check user recipes first, then mock recipes
+    const userRecipes = JSON.parse(localStorage.getItem('userRecipes') || '[]');
+    let recipe = userRecipes.find(r => r._id === id);
+    
+    if (!recipe) {
+      recipe = getRecipeById(id);
+    }
+    
+    if (recipe) {
       setFormData({
         title: recipe.title,
         description: recipe.description,
@@ -38,14 +43,13 @@ const RecipeForm = () => {
         cookingTime: recipe.cookingTime,
         servings: recipe.servings,
         difficulty: recipe.difficulty,
+        cuisine: recipe.cuisine || '',
         image: recipe.image || ''
       });
-    } catch (error) {
-      console.error('Error fetching recipe:', error);
+    } else {
       navigate('/my-recipes');
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   const handleChange = (e) => {
@@ -89,35 +93,42 @@ const RecipeForm = () => {
   };
 
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     setSubmitting(true);
 
-    try {
-      const token = localStorage.getItem('token');
-      const data = {
-        ...formData,
-        ingredients: formData.ingredients.filter(i => i.name && i.quantity),
-        instructions: formData.instructions.filter(i => i.trim())
-      };
-
-      if (isEdit) {
-        await axios.put(`${config.API_BASE_URL}/api/recipes/${id}`, data, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-      } else {
-        await axios.post(`${config.API_BASE_URL}/api/recipes`, data, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-      }
-
-      navigate('/my-recipes');
-    } catch (error) {
-      console.error('Error saving recipe:', error);
-      alert('Error saving recipe. Please try again.');
-    } finally {
-      setSubmitting(false);
+    const userData = localStorage.getItem('user');
+    if (!userData) {
+      navigate('/login');
+      return;
     }
+
+    const currentUser = JSON.parse(userData);
+    const data = {
+      _id: isEdit ? id : 'recipe_' + Date.now(),
+      ...formData,
+      ingredients: formData.ingredients.filter(i => i.name && i.quantity),
+      instructions: formData.instructions.filter(i => i.trim()),
+      author: { name: currentUser.name, _id: currentUser.id, id: currentUser.id },
+      createdAt: isEdit ? undefined : new Date().toISOString(),
+      averageRating: 0,
+      reviews: []
+    };
+
+    const userRecipes = JSON.parse(localStorage.getItem('userRecipes') || '[]');
+    
+    if (isEdit) {
+      const index = userRecipes.findIndex(r => r._id === id);
+      if (index !== -1) {
+        userRecipes[index] = { ...userRecipes[index], ...data };
+      }
+    } else {
+      userRecipes.push(data);
+    }
+
+    localStorage.setItem('userRecipes', JSON.stringify(userRecipes));
+    navigate('/my-recipes');
+    setSubmitting(false);
   };
 
   if (loading) {
@@ -211,6 +222,18 @@ const RecipeForm = () => {
                 <option value="medium">Medium</option>
                 <option value="hard">Hard</option>
               </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Cuisine</label>
+            <input
+              type="text"
+              name="cuisine"
+              value={formData.cuisine || ''}
+              onChange={handleChange}
+              placeholder="e.g., Italian, Indian, Mexican"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
 
           <div>

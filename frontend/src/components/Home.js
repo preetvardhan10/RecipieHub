@@ -1,41 +1,42 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
-import config from '../config';
+import { mockRecipes, filterRecipes } from '../data/mockData';
 
 const Home = () => {
   const [recipes, setRecipes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    fetchRecipes();
-  }, []);
-
-  const fetchRecipes = async () => {
-    try {
-      const response = await axios.get(`${config.API_BASE_URL}/api/recipes?limit=100&sortBy=rating`);
-      setRecipes(response.data.recipes);
-    } catch (error) {
-      console.error('Error fetching recipes:', error);
-    } finally {
-      setLoading(false);
-    }
+  const getAllRecipes = () => {
+    const userRecipes = JSON.parse(localStorage.getItem('userRecipes') || '[]');
+    return [...mockRecipes, ...userRecipes];
   };
 
-  const handleSearch = async (e) => {
+  useEffect(() => {
+    // Sort by rating for featured recipes
+    const allRecipes = getAllRecipes();
+    const sortedRecipes = allRecipes.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
+    setRecipes(sortedRecipes.slice(0, 9)); // Show top 9 recipes
+  }, []);
+
+  const handleSearch = (e) => {
     e.preventDefault();
     if (!searchTerm.trim()) {
-      fetchRecipes();
+      const allRecipes = getAllRecipes();
+      const sortedRecipes = allRecipes.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
+      setRecipes(sortedRecipes.slice(0, 9));
       return;
     }
     
-    try {
-      const response = await axios.get(`${config.API_BASE_URL}/api/recipes/search?ingredients=${searchTerm}`);
-      setRecipes(response.data.recipes);
-    } catch (error) {
-      console.error('Search error:', error);
-    }
+    // Filter from all recipes (mock + user)
+    const allRecipes = getAllRecipes();
+    const searchLower = searchTerm.toLowerCase();
+    const filtered = allRecipes.filter(recipe => 
+      recipe.title.toLowerCase().includes(searchLower) ||
+      recipe.description.toLowerCase().includes(searchLower) ||
+      recipe.ingredients.some(ing => ing.name.toLowerCase().includes(searchLower))
+    );
+    setRecipes(filtered);
   };
 
   return (

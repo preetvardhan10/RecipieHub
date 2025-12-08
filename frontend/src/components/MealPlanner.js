@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import config from '../config';
+import { useNavigate, Link } from 'react-router-dom';
+import { mockRecipes } from '../data/mockData';
 
 const MealPlanner = () => {
   const [mealPlans, setMealPlans] = useState([]);
   const [recipes, setRecipes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     weekStartDate: '',
@@ -27,27 +26,16 @@ const MealPlanner = () => {
     fetchRecipes();
   }, [navigate]);
 
-  const fetchMealPlans = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${config.API_BASE_URL}/api/mealplans`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setMealPlans(response.data);
-    } catch (error) {
-      console.error('Error fetching meal plans:', error);
-    } finally {
-      setLoading(false);
-    }
+  const fetchMealPlans = () => {
+    const plans = JSON.parse(localStorage.getItem('mealPlans') || '[]');
+    setMealPlans(plans);
+    setLoading(false);
   };
 
-  const fetchRecipes = async () => {
-    try {
-      const response = await axios.get(`${config.API_BASE_URL}/api/recipes?limit=100`);
-      setRecipes(response.data.recipes);
-    } catch (error) {
-      console.error('Error fetching recipes:', error);
-    }
+  const fetchRecipes = () => {
+    // Combine mock recipes with user recipes
+    const userRecipes = JSON.parse(localStorage.getItem('userRecipes') || '[]');
+    setRecipes([...mockRecipes, ...userRecipes]);
   };
 
   const handleMealChange = (day, mealType, recipeId) => {
@@ -60,40 +48,35 @@ const MealPlanner = () => {
     });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    try {
-      const token = localStorage.getItem('token');
-      const meals = [];
-      
-      Object.keys(formData.meals).forEach(key => {
-        if (formData.meals[key]) {
-          const [day, mealType] = key.split('-');
-          meals.push({
-            day,
-            mealType,
-            recipe: formData.meals[key]
-          });
-        }
-      });
+    const meals = [];
+    
+    Object.keys(formData.meals).forEach(key => {
+      if (formData.meals[key]) {
+        const [day, mealType] = key.split('-');
+        const recipe = recipes.find(r => r._id === formData.meals[key]);
+        meals.push({
+          day,
+          mealType,
+          recipe: recipe || { _id: formData.meals[key], title: 'Recipe' }
+        });
+      }
+    });
 
-      await axios.post(
-        `${config.API_BASE_URL}/api/mealplans`,
-        {
-          weekStartDate: formData.weekStartDate,
-          meals
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+    const newPlan = {
+      _id: 'plan_' + Date.now(),
+      weekStartDate: formData.weekStartDate,
+      meals
+    };
 
-      setShowForm(false);
-      setFormData({ weekStartDate: '', meals: {} });
-      fetchMealPlans();
-    } catch (error) {
-      console.error('Error creating meal plan:', error);
-    }
+    const plans = JSON.parse(localStorage.getItem('mealPlans') || '[]');
+    plans.push(newPlan);
+    localStorage.setItem('mealPlans', JSON.stringify(plans));
+
+    setShowForm(false);
+    setFormData({ weekStartDate: '', meals: {} });
+    fetchMealPlans();
   };
 
   if (loading) {
@@ -190,17 +173,12 @@ const MealPlanner = () => {
                     Week of {new Date(plan.weekStartDate).toLocaleDateString()}
                   </h2>
                   <button
-                    onClick={async () => {
+                    onClick={() => {
                       if (window.confirm('Delete this meal plan?')) {
-                        try {
-                          const token = localStorage.getItem('token');
-                          await axios.delete(`${config.API_BASE_URL}/api/mealplans/${plan._id}`, {
-                            headers: { Authorization: `Bearer ${token}` }
-                          });
-                          fetchMealPlans();
-                        } catch (error) {
-                          console.error('Error deleting meal plan:', error);
-                        }
+                        const plans = JSON.parse(localStorage.getItem('mealPlans') || '[]');
+                        const updatedPlans = plans.filter(p => p._id !== plan._id);
+                        localStorage.setItem('mealPlans', JSON.stringify(updatedPlans));
+                        fetchMealPlans();
                       }
                     }}
                     className="text-red-600 hover:text-red-800"
@@ -229,12 +207,12 @@ const MealPlanner = () => {
                             return (
                               <td key={mealType} className="px-4 py-2">
                                 {meal?.recipe ? (
-                                  <a
-                                    href={`/recipe/${meal.recipe._id || meal.recipe}`}
+                                  <Link
+                                    to={`/recipe/${meal.recipe._id || meal.recipe}`}
                                     className="text-orange-600 hover:underline"
                                   >
                                     {meal.recipe.title || 'Recipe'}
-                                  </a>
+                                  </Link>
                                 ) : (
                                   <span className="text-gray-400">-</span>
                                 )}

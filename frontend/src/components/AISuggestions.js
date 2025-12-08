@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import config from '../config';
+import { useNavigate, Link } from 'react-router-dom';
+import { mockRecipes, filterRecipes } from '../data/mockData';
 
 const AISuggestions = () => {
   const [selectedIngredients, setSelectedIngredients] = useState([]);
@@ -64,7 +63,7 @@ const AISuggestions = () => {
     'Soy Milk', 'Almond Milk', 'Oat Milk', 'Coconut Milk', 'Plant-Based Butter', 'Nutritional Yeast'
   ];
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     const userData = localStorage.getItem('user');
     if (!userData) {
@@ -73,36 +72,30 @@ const AISuggestions = () => {
     }
 
     setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `${config.API_BASE_URL}/api/ai/suggest`,
-        {
-          ingredients: selectedIngredients,
-          dietaryPreferences,
-          cuisine
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      setSuggestions(response.data);
-    } catch (error) {
-      console.error('Error getting AI suggestions:', error);
-      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Unknown error occurred';
-      alert(`Error getting suggestions: ${errorMessage}. ${error.response?.data?.details ? `Details: ${error.response.data.details}` : 'Please check your OpenAI API key or try again.'}`);
-      
-      // If there are similar recipes, show them anyway
-      if (error.response?.data?.similarRecipes) {
-        setSuggestions({
-          aiSuggestions: [],
-          similarRecipes: error.response.data.similarRecipes,
-          message: error.response.data.message || 'AI service unavailable, showing similar recipes from database'
-        });
-      }
-    } finally {
-      setLoading(false);
+    
+    // Filter recipes based on selected ingredients from all recipes
+    const userRecipes = JSON.parse(localStorage.getItem('userRecipes') || '[]');
+    const allRecipes = [...mockRecipes, ...userRecipes];
+    const searchTerm = selectedIngredients.join(' ').toLowerCase();
+    
+    let filtered = allRecipes.filter(recipe => {
+      const ingredientNames = recipe.ingredients.map(ing => ing.name.toLowerCase()).join(' ');
+      return ingredientNames.includes(searchTerm) || 
+             recipe.title.toLowerCase().includes(searchTerm);
+    });
+    
+    if (cuisine) {
+      filtered = filtered.filter(recipe => recipe.cuisine === cuisine);
     }
+
+    // Mock AI suggestions - just return filtered recipes
+    setSuggestions({
+      aiSuggestions: [],
+      similarRecipes: filtered,
+      message: 'Showing similar recipes from our collection based on your ingredients. AI suggestions are available in full version.'
+    });
+    
+    setLoading(false);
   };
 
   const toggleDietaryPreference = (pref) => {
@@ -214,9 +207,8 @@ const AISuggestions = () => {
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 disabled:opacity-50 font-semibold"
             disabled={selectedIngredients.length === 0 || loading}
+            className="w-full bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 disabled:opacity-50 font-semibold"
           >
             {loading ? 'Getting Suggestions...' : 'Get AI Suggestions'}
           </button>
@@ -297,9 +289,9 @@ const AISuggestions = () => {
                 <p className="text-gray-600 mb-6">Found {suggestions.similarRecipes.length} recipe{suggestions.similarRecipes.length !== 1 ? 's' : ''} with similar ingredients:</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {suggestions.similarRecipes.map((recipe) => (
-                    <a
+                    <Link
                       key={recipe._id}
-                      href={`/recipe/${recipe._id}`}
+                      to={`/recipe/${recipe._id}`}
                       className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-all transform hover:-translate-y-1"
                     >
                       {recipe.image && (
@@ -322,7 +314,7 @@ const AISuggestions = () => {
                           </span>
                         )}
                       </div>
-                    </a>
+                    </Link>
                   ))}
                 </div>
               </div>

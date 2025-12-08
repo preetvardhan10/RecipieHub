@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
-import config from '../config';
 
 const Register = ({ onLogin }) => {
   const [formData, setFormData] = useState({
@@ -20,7 +18,7 @@ const Register = ({ onLogin }) => {
     });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -37,18 +35,36 @@ const Register = ({ onLogin }) => {
       return;
     }
 
-    try {
-      const response = await axios.post(`${config.API_BASE_URL}/api/auth/signup`, {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password
-      });
-      onLogin(response.data.token, response.data.user);
-    } catch (error) {
-      setError(error.response?.data?.error || 'Registration failed');
-    } finally {
+    // Check if user already exists
+    const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+    if (registeredUsers.some(u => u.email === formData.email)) {
+      setError('Email already registered. Please login instead.');
       setLoading(false);
+      return;
     }
+
+    // Create new user
+    const newUser = {
+      id: 'user_' + Date.now(),
+      name: formData.name,
+      email: formData.email,
+      password: formData.password // In real app, this would be hashed
+    };
+
+    registeredUsers.push(newUser);
+    localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
+
+    // Create mock token and login
+    const mockToken = 'mock_token_' + Date.now();
+    const userData = {
+      id: newUser.id,
+      name: newUser.name,
+      email: newUser.email,
+      _id: newUser.id
+    };
+
+    onLogin(mockToken, userData);
+    setLoading(false);
   };
 
   return (

@@ -1,0 +1,91 @@
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// Create axios instance
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add token to requests
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Handle response errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Auth API
+export const authAPI = {
+  signup: (data) => api.post('/auth/signup', data),
+  login: (data) => api.post('/auth/login', data),
+  getMe: () => api.get('/auth/me'),
+};
+
+// Recipe API
+export const recipeAPI = {
+  getRecipes: (params) => api.get('/recipes', { params }),
+  getRecipe: (id) => api.get(`/recipes/${id}`),
+  createRecipe: (data) => api.post('/recipes', data),
+  updateRecipe: (id, data) => api.put(`/recipes/${id}`, data),
+  deleteRecipe: (id) => api.delete(`/recipes/${id}`),
+  rateRecipe: (id, rating) => api.post(`/recipes/${id}/rate`, { rating }),
+  toggleFavorite: (id) => api.post(`/recipes/${id}/favorite`),
+  searchRecipes: (params) => api.get('/recipes/search', { params }),
+};
+
+// Review API
+export const reviewAPI = {
+  createReview: (data) => api.post('/reviews', data),
+  getRecipeReviews: (recipeId, params) => api.get(`/reviews/recipe/${recipeId}`, { params }),
+  updateReview: (id, data) => api.put(`/reviews/${id}`, data),
+  deleteReview: (id) => api.delete(`/reviews/${id}`),
+};
+
+// Meal Plan API
+export const mealPlanAPI = {
+  createMealPlan: (data) => api.post('/mealplans', data),
+  getMealPlans: (params) => api.get('/mealplans', { params }),
+  getMealPlan: (id) => api.get(`/mealplans/${id}`),
+  updateMealPlan: (id, data) => api.put(`/mealplans/${id}`, data),
+  deleteMealPlan: (id) => api.delete(`/mealplans/${id}`),
+};
+
+// AI API
+export const aiAPI = {
+  suggestRecipes: (data) => api.post('/ai/suggest', data),
+};
+
+// User API
+export const userAPI = {
+  getUserProfile: (id) => api.get(`/users/${id}`),
+  getUserRecipes: (id, params) => api.get(`/users/${id}/recipes`, { params }),
+  toggleFollow: (id) => api.post(`/users/${id}/follow`),
+  updateProfile: (data) => api.put('/users/profile', data),
+  getFavorites: () => api.get('/users/favorites/list'),
+};
+
+export default api;
+

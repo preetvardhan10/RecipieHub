@@ -1,0 +1,113 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique @db.VarChar(30)
+  email     String   @unique
+  password  String
+  role      Role     @default(USER)
+  avatar    String   @default("")
+  bio       String?  @db.Text
+  favorites String[] @default([])
+  followers String[] @default([])
+  following String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  recipes   Recipe[]
+  reviews   Review[]
+  mealPlans MealPlan[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model Recipe {
+  id            String   @id @default(uuid())
+  title         String   @db.VarChar(200)
+  description   String   @db.Text
+  ingredients   Json     @default("[]")
+  instructions  Json     @default("[]")
+  cuisine       String
+  difficulty    Difficulty
+  cookingTime   Int
+  servings      Int
+  image         String   @default("")
+  tags          String[]
+  ratings       Json     @default("[]")
+  averageRating Decimal? @default(0) @db.Decimal(3, 1)
+  reviewCount   Int      @default(0)
+  authorId      String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  author  User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  reviews Review[]
+
+  @@index([cuisine])
+  @@index([difficulty])
+  @@index([cookingTime])
+  @@index([averageRating])
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("recipes")
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  rating    Int
+  comment   String   @db.Text
+  recipeId  String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, userId])
+  @@index([recipeId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("reviews")
+}
+
+model MealPlan {
+  id          String   @id @default(uuid())
+  name        String   @db.VarChar(100)
+  description String?  @db.Text
+  startDate   DateTime
+  endDate     DateTime
+  meals       Json     @default("[]")
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([startDate, endDate])
+  @@map("meal_plans")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Difficulty {
+  Easy
+  Medium
+  Hard
+}
+

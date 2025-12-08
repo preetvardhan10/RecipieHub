@@ -2,6 +2,12 @@ import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
+// Log API URL for debugging (only in development)
+if (import.meta.env.DEV) {
+  console.log('🔗 API URL:', API_URL);
+  console.log('🔗 VITE_API_URL env:', import.meta.env.VITE_API_URL);
+}
+
 // Create axios instance
 const api = axios.create({
   baseURL: API_URL,
@@ -28,6 +34,16 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Log error details for debugging
+    console.error('❌ API Error:', {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+      url: error.config?.url,
+      baseURL: error.config?.baseURL,
+      fullURL: error.config?.baseURL + error.config?.url,
+    });
+
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');

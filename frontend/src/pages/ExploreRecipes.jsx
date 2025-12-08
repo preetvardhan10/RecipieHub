@@ -43,6 +43,13 @@ const ExploreRecipes = () => {
       setPagination(response.data.data.pagination);
     } catch (error) {
       console.error('Failed to fetch recipes:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      // Show error to user
+      alert(`Failed to load recipes: ${error.response?.data?.message || error.message}`);
     } finally {
       setLoading(false);
     }

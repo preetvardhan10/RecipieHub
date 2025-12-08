@@ -23,6 +23,12 @@ const Dashboard = () => {
         setMealPlans(mealPlansRes.data.data.mealPlans);
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
+        console.error('Error details:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+          url: error.config?.url,
+        });
       } finally {
         setLoading(false);
       }
